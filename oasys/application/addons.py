@@ -2,8 +2,6 @@ import sys
 import sysconfig
 import os
 import logging
-import re
-import errno
 import shlex
 import itertools
 import json
@@ -14,7 +12,10 @@ from collections import namedtuple, deque
 from xml.sax.saxutils import escape
 from distutils import version
 
-import pkg_resources
+# 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+#              because of deprecation
+#import pkg_resources
+import importlib_metadata
 import requests
 
 try:
@@ -282,7 +283,11 @@ class AddonManagerWidget(QWidget):
             if isinstance(item, Installed):
                 installed = True
                 ins, dist = item
-                name = dist.project_name
+                # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+                #              because of deprecation
+                #name = dist.project_name
+                try:    name = dist.name
+                except: name = dist.project_name # redundant, but safe
                 summary = get_dist_meta(dist).get("Summary", "")
                 version = ins.version if ins is not None else dist.version
             else:
@@ -631,12 +636,19 @@ class AddonManagerDialog(QDialog):
         # type: (List[Installable]) -> None
         self._packages = packages = installable  # type: List[Installable]
         installed = list_installed_addons()
-        dists = {dist.project_name: dist for dist in installed}
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        #dists = {dist.project_name: dist for dist in installed}
+        try:    dists = {dist.name: dist for dist in installed}
+        except: dists = {dist.project_name: dist for dist in installed}
         packages = {pkg.name: pkg for pkg in packages}
 
         # For every pypi available distribution not listed by
         # list_installed_addons, check if it is actually already
         # installed.
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        '''
         ws = pkg_resources.WorkingSet()
         for pkg_name in set(packages.keys()).difference(set(dists.keys())):
             try:
@@ -649,6 +661,19 @@ class AddonManagerDialog(QDialog):
             else:
                 if d is not None:
                     dists[d.project_name] = d
+        '''
+        for pkg_name in set(packages.keys()).difference(set(dists.keys())):
+            try:
+                d = importlib_metadata.distribution(pkg_name)
+            except importlib_metadata.PackageNotFoundError:
+                pass
+            except importlib_metadata.VersionConflict:
+                pass
+            except ValueError:
+                pass
+            else:
+                if d is not None:
+                    dists[d.metadata['Name']] = d
 
         project_names = unique(itertools.chain(packages.keys(), dists.keys()))
 
@@ -782,8 +807,14 @@ def list_available_versions():
 
     # query pypi.org for installed add-ons that are not in our list
     installed = list_installed_addons()
-    missing = set(dist.project_name for dist in installed) - \
-              set(a.get("info", {}).get("name", "") for a in addons)
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    #missing = set(dist.project_name for dist in installed) - \
+    #          set(a.get("info", {}).get("name", "") for a in addons)
+    try : missing = set(dist.name for dist in installed) - \
+                    set(a.get("info", {}).get("name", "") for a in addons)
+    except: missing = set(dist.project_name for dist in installed) - \
+                      set(a.get("info", {}).get("name", "") for a in addons)
     for p in missing:
         response = requests.get(PYPI_API_JSON.format(name=p))
         if response.status_code != 200: continue
@@ -862,8 +893,11 @@ def installable_from_json_response(meta):
 
 def list_installed_addons():
     from oasys.canvas.conf import ADDONS_ENTRY
-    workingset = pkg_resources.WorkingSet(sys.path)
-    return [ep.dist for ep in workingset.iter_entry_points(ADDONS_ENTRY)]
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    #workingset = pkg_resources.WorkingSet(sys.path)
+    #return [ep.dist for ep in workingset.iter_entry_points(ADDONS_ENTRY)]
+    return [ep.dist for ep in importlib_metadata.entry_points(group=ADDONS_ENTRY)]
 
 def unique(iterable):
     seen = set()
@@ -898,12 +932,18 @@ def installable_items(pypipackages, installed=[]):
     pypipackages : list of Installable
     installed : list of pkg_resources.Distribution
     """
-
-    dists = {dist.project_name: dist for dist in installed}
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    #dists = {dist.project_name: dist for dist in installed}
+    dists = {dist.name: dist for dist in installed}
     packages = {pkg.name: pkg for pkg in pypipackages}
 
     # For every pypi available distribution not listed by
     # `installed`, check if it is actually already installed.
+
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    '''
     ws = pkg_resources.WorkingSet()
     for pkg_name in set(packages.keys()).difference(set(dists.keys())):
         try:
@@ -916,6 +956,19 @@ def installable_items(pypipackages, installed=[]):
         else:
             if d is not None:
                 dists[d.project_name] = d
+    '''
+    for pkg_name in set(packages.keys()).difference(set(dists.keys())):
+        try:
+            d = importlib_metadata.distribution(pkg_name)
+        except importlib_metadata.PackageNotFoundError:
+            pass
+        except importlib_metadata.VersionConflict:
+            pass
+        except ValueError:
+            pass
+        else:
+            if d is not None:
+                dists[d.metadata['Name']] = d
 
     project_names = unique(itertools.chain(packages.keys(), dists.keys()))
 
@@ -991,8 +1044,8 @@ class Installer(QObject):
                     else:
                         self.pip.upgrade(pkg.installable, admin=True)
             elif command == Uninstall:
-                self.setStatusMessage(
-                    "Uninstalling {}".format(cleanup(pkg.local.project_name)))
+                try:    self.setStatusMessage( "Uninstalling {}".format(cleanup(pkg.local.name)))
+                except: self.setStatusMessage( "Uninstalling {}".format(cleanup(pkg.local.project_name)))
                 if self.conda:
                     try:                  self.conda.uninstall(pkg.local, raise_on_fail=True)
                     except CommandFailed: self.pip.uninstall(pkg.local)
@@ -1040,7 +1093,11 @@ class PipInstaller:
         run_command(cmd)
 
     def uninstall(self, dist):
-        run_command(["python", "-m", "pip", "uninstall", "--yes", dist.project_name])
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        #run_command(["python", "-m", "pip", "uninstall", "--yes", dist.project_name])
+        try:    run_command(["python", "-m", "pip", "uninstall", "--yes", dist.name])
+        except: run_command(["python", "-m", "pip", "uninstall", "--yes", dist.project_name])
 
 
 class CondaInstaller:
@@ -1076,7 +1133,9 @@ class CondaInstaller:
         run_command([self.conda, "upgrade", "--yes", "--quiet", self._normalize(pkg.name)], raise_on_fail=raise_on_fail)
 
     def uninstall(self, dist, raise_on_fail=False):
-        run_command([self.conda, "uninstall", "--yes", self._normalize(dist.project_name)], raise_on_fail=raise_on_fail)
+        #run_command([self.conda, "uninstall", "--yes", self._normalize(dist.project_name)], raise_on_fail=raise_on_fail)
+        try:    run_command([self.conda, "uninstall", "--yes", self._normalize(dist.name)], raise_on_fail=raise_on_fail)
+        except: run_command([self.conda, "uninstall", "--yes", self._normalize(dist.project_name)], raise_on_fail=raise_on_fail)
 
     def _normalize(self, name):
         # Conda 4.3.30 is inconsistent, upgrade command is case sensitive

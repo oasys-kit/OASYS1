@@ -8,7 +8,9 @@ import concurrent.futures
 from xml.etree import ElementTree
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-import pkg_resources
+#import pkg_resources
+import importlib_metadata
+import importlib_resources
 
 from PyQt5.QtWidgets import (
     QWidget, QMenu, QAction, QDialog, QMessageBox, QFileDialog,
@@ -452,7 +454,9 @@ def load_pypi_internal_libraries():
     return internal_libraries.list_available_internal_libraries()
 
 def resource_path(path):
-    return pkg_resources.resource_filename(__name__, path)
+    #return pkg_resources.resource_filename(__name__, path)
+    ref = importlib_resources.files(__name__) / path
+    with importlib_resources.as_file(ref) as resource_path: return str(resource_path)
 
 from oasys.util.external_command import run_command
 
@@ -550,14 +554,19 @@ class OASYSMainWindow(canvasmain.CanvasMainWindow):
             class EntryPoint():
                 def __init__(self, project_name, version):
                     self.project_name = project_name
-                    self.version = version
+                    self.version      = version
 
             entry_points = []
-
+            #for internal_library in self.__pypi_internal_libraries:
+            #    try:
+            #        entry_points.append(EntryPoint(internal_library.name, pkg_resources.get_distribution(internal_library.name).version))
+            #    except pkg_resources.DistributionNotFound:
+            #        pass
             for internal_library in self.__pypi_internal_libraries:
                 try:
-                    entry_points.append(EntryPoint(internal_library.name, pkg_resources.get_distribution(internal_library.name).version))
-                except pkg_resources.DistributionNotFound:
+                    version = importlib_metadata.version(internal_library.name)
+                    entry_points.append(EntryPoint(internal_library.name, version))
+                except importlib_metadata.PackageNotFoundError:
                     pass
 
             items = addons.installable_items(self.__pypi_internal_libraries, entry_points)

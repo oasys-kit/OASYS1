@@ -1,6 +1,10 @@
 import logging
 import sys
-import pkg_resources
+# 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+#              because of deprecation
+#import pkg_resources
+import importlib_resources
+import importlib_metadata
 
 from PyQt5.QtGui import QPixmap, QFont, QFontMetrics, QColor, QPainter, QIcon
 from PyQt5.QtCore import Qt, QCoreApplication, QPoint, QRect
@@ -41,9 +45,8 @@ class oasysconf(owconfig.orangeconfig):
 
     @staticmethod
     def splash_screen():
-        path = pkg_resources.resource_filename(
-            __name__, "icons/oasys-splash-screen.png")
-        pm = QPixmap(path)
+        ref = importlib_resources.files(__name__).joinpath("icons/oasys-splash-screen.png")
+        with importlib_resources.as_file(ref) as path: pm = QPixmap(str(path))
 
         version = QCoreApplication.applicationVersion()
         size = 21 if len(version) < 5 else 16
@@ -70,18 +73,22 @@ class oasysconf(owconfig.orangeconfig):
         """
         Return the main application icon.
         """
-        path = pkg_resources.resource_filename(
-            __name__, "icons/oasys.png"
-        )
-        return QIcon(path)
+        ref = importlib_resources.files(__name__).joinpath("icons/oasys.png")
+        with importlib_resources.as_file(ref) as path: return QIcon(str(path))
 
     @staticmethod
     def widgets_entry_points():
-        return pkg_resources.iter_entry_points(WIDGETS_ENTRY)
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        return importlib_metadata.entry_points(group=WIDGETS_ENTRY)
+        #return pkg_resources.iter_entry_points(WIDGETS_ENTRY)
 
     @staticmethod
     def addon_entry_points():
-        return pkg_resources.iter_entry_points(ADDONS_ENTRY)
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        return importlib_metadata.entry_points(group=ADDONS_ENTRY)
+        #return pkg_resources.iter_entry_points(ADDONS_ENTRY)
 
     @staticmethod
     def addon_pypi_search_spec():
@@ -89,7 +96,10 @@ class oasysconf(owconfig.orangeconfig):
 
     @staticmethod
     def tutorials_entry_points():
-        return pkg_resources.iter_entry_points("oasys.tutorials")
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        return importlib_metadata.entry_points(group="oasys.tutorials")
+        #return pkg_resources.iter_entry_points("oasys.tutorials")
 
     workflow_constructor = widgetsscheme.OASYSWidgetsScheme
 
@@ -100,15 +110,16 @@ def omenus():
     by 'orange.menu' pkg_resources entry point.
     """
     log = logging.getLogger(__name__)
-    for ep in pkg_resources.iter_entry_points(MENU_ENTRY):
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    #for ep in pkg_resources.iter_entry_points(MENU_ENTRY):
+    for ep in importlib_metadata.entry_points(group=MENU_ENTRY):
         try:
             menu = ep.load()
-        except pkg_resources.ResolutionError:
-            log.info("Error loading a '%s' entry point.", MENU_ENTRY,
-                     exc_info=True)
+        #except pkg_resources.ResolutionError:
+        #    log.info("Error loading a '%s' entry point.", MENU_ENTRY, exc_info=True)
         except Exception:
-            log.exception("Error loading a '%s' entry point.",
-                          MENU_ENTRY)
+            log.exception("Error loading a '%s' entry point.", MENU_ENTRY)
         else:
             if "MENU" in menu.__dict__:
                 yield from discovery.omenus_from_package(menu)

@@ -15,7 +15,10 @@ import signal
 import time
 import platform
 
-import pkg_resources
+# 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+#              because of deprecation
+#import pkg_resources
+import importlib_resources
 
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont, QColor
@@ -246,6 +249,9 @@ def main(argv=None):
                 pkg_name = orangecanvas.__name__
                 resource = "styles/" + stylesheet
 
+                # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+                #              because of deprecation
+                '''
                 if pkg_resources.resource_exists(pkg_name, resource):
                     stylesheet_string = \
                         pkg_resources.resource_string(pkg_name, resource).decode()
@@ -268,6 +274,30 @@ def main(argv=None):
 
                 else:
                     log.info("%r style sheet not found.", stylesheet)
+                '''
+
+                ref = importlib_resources.files(pkg_name).joinpath(resource)
+                with importlib_resources.as_file(ref) as stylesheet_file:
+                    if os.path.exists(stylesheet_file):
+                        stylesheet_string = ref.read_bytes().decode()
+
+                        ref = importlib_resources.files(pkg_name) / "styles"
+                        with importlib_resources.as_file(ref) as base:
+                            pattern = re.compile(
+                                r"^\s@([a-zA-Z0-9_]+?)\s*:\s*([a-zA-Z0-9_/]+?);\s*$",
+                                flags=re.MULTILINE
+                            )
+
+                            matches = pattern.findall(stylesheet_string)
+
+                            for prefix, search_path in matches:
+                                QDir.addSearchPath(prefix, os.path.join(base, search_path))
+                                log.info("Adding search path %r for prefix, %r",
+                                         search_path, prefix)
+
+                        stylesheet_string = pattern.sub("", stylesheet_string)
+                    else:
+                        log.info("%r style sheet not found.", stylesheet)
 
         # Add the default canvas_icons search path
         dirpath = os.path.abspath(os.path.dirname(orangecanvas.__file__))

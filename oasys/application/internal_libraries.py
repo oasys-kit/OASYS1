@@ -8,7 +8,10 @@ import concurrent.futures
 from xml.sax.saxutils import escape
 from distutils import version
 
-import pkg_resources
+# 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+#              because of deprecation
+#import pkg_resources
+import importlib_metadata
 import requests
 
 try:
@@ -90,7 +93,10 @@ def is_updatable(item):
     if isinstance(item, Available) or isinstance(item, Installable) or item.installable is None:
         return False
     inst, dist = item
-    project_name = str(dist.project_name).lower()
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    try:    project_name = str(dist.name).lower()
+    except: project_name = str(dist.project_name).lower()
     try:
         if version.StrictVersion(dist.version) < version.StrictVersion(inst.version):
             if MAX_VERSION[project_name] is None: return True
@@ -175,7 +181,11 @@ class InternalLibrariesManagerWidget(QWidget):
             if isinstance(item, Installed):
                 installed = True
                 ins, dist = item
-                name = dist.project_name
+                # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+                #              because of deprecation
+                #name = dist.project_name
+                try:    name = dist.name
+                except: name = dist.project_name
                 summary = get_dist_meta(dist).get("Summary", "")
                 version = ins.version if ins is not None else dist.version
             else:
@@ -452,12 +462,19 @@ class InternalLibrariesManagerDialog(QDialog):
         # type: (List[Installable]) -> None
         self._packages = packages = installable  # type: List[Installable]
         installed = list_installed_internal_libraries()
-        dists = {dist.project_name: dist for dist in installed}
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        #dists = {dist.project_name: dist for dist in installed}
+        try:    dists = {dist.name: dist for dist in installed}
+        except: dists = {dist.project_name: dist for dist in installed}
         packages = {pkg.name: pkg for pkg in packages}
 
         # For every pypi available distribution not listed by
         # list_installed_addons, check if it is actually already
         # installed.
+        # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+        #              because of deprecation
+        '''
         ws = pkg_resources.WorkingSet()
         for pkg_name in set(packages.keys()).difference(set(dists.keys())):
             try:
@@ -470,6 +487,19 @@ class InternalLibrariesManagerDialog(QDialog):
             else:
                 if d is not None:
                     dists[d.project_name] = d
+        '''
+        for pkg_name in set(packages.keys()).difference(set(dists.keys())):
+            try:
+                d = importlib_metadata.distribution(pkg_name)
+            except importlib_metadata.PackageNotFoundError:
+                pass
+            except importlib_metadata.VersionConflict:
+                pass
+            except ValueError:
+                pass
+            else:
+                if d is not None:
+                    dists[d.metadata['Name']] = d
 
         project_names = unique(
             itertools.chain(packages.keys(), dists.keys())
@@ -623,8 +653,14 @@ def list_available_versions():
 
     # query pypi.org for installed add-ons that are not in our list
     installed = list_installed_internal_libraries()
-    missing = set(dist.project_name for dist in installed) - \
-              set(a.get("info", {}).get("name", "") for a in internal_libraries)
+    # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
+    #              because of deprecation
+    #missing = set(dist.project_name for dist in installed) - \
+    #          set(a.get("info", {}).get("name", "") for a in internal_libraries)
+    try: missing = set(dist.name for dist in installed) - \
+                   set(a.get("info", {}).get("name", "") for a in internal_libraries)
+    except: missing = set(dist.project_name for dist in installed) - \
+                      set(a.get("info", {}).get("name", "") for a in internal_libraries)
     for p in missing:
         response = requests.get(PYPI_API_JSON.format(name=p))
         if response.status_code != 200:
@@ -647,6 +683,7 @@ def list_available_versions():
     return packages
 
 def list_installed_internal_libraries():
+    '''
     workingset = pkg_resources.WorkingSet(sys.path)
 
     installed_internal_libraries = []
@@ -656,5 +693,13 @@ def list_installed_internal_libraries():
             installed_internal_libraries.append(workingset.by_key[internal_library.lower()])
         except KeyError:
             pass
+    '''
+
+    installed_internal_libraries = []
+    # Iterate over all distributions available in the current environment
+    for dist in importlib_metadata.distributions():
+        # Check if the distribution's name matches any of the internal libraries
+        if dist.metadata['Name'].lower() in (lib.lower() for lib in INTERNAL_LIBRARIES):
+            installed_internal_libraries.append(dist)
 
     return installed_internal_libraries
