@@ -278,7 +278,7 @@ def main(argv=None):
 
                 ref = importlib_resources.files(pkg_name).joinpath(resource)
                 with importlib_resources.as_file(ref) as stylesheet_file:
-                    if os.path.exists(stylesheet_file):
+                    if os.path.exists(str(stylesheet_file)):
                         stylesheet_string = ref.read_bytes().decode()
 
                         ref = importlib_resources.files(pkg_name) / "styles"
@@ -291,9 +291,8 @@ def main(argv=None):
                             matches = pattern.findall(stylesheet_string)
 
                             for prefix, search_path in matches:
-                                QDir.addSearchPath(prefix, os.path.join(base, search_path))
-                                log.info("Adding search path %r for prefix, %r",
-                                         search_path, prefix)
+                                QDir.addSearchPath(prefix, os.path.join(str(base), search_path))
+                                log.info("Adding search path %r for prefix, %r", search_path, prefix)
 
                         stylesheet_string = pattern.sub("", stylesheet_string)
                     else:
