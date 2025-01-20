@@ -465,8 +465,10 @@ class InternalLibrariesManagerDialog(QDialog):
         # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
         #              because of deprecation
         #dists = {dist.project_name: dist for dist in installed}
-        try:    dists = {dist.name: dist for dist in installed}
-        except: dists = {dist.project_name: dist for dist in installed}
+        dists = {}
+        for dist in installed:
+            try:    dists[dist.project_name] = dist
+            except: dists[dist.name] = dist
         packages = {pkg.name: pkg for pkg in packages}
 
         # For every pypi available distribution not listed by
