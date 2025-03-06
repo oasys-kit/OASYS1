@@ -16,6 +16,7 @@ from distutils import version
 #              because of deprecation
 #import pkg_resources
 import importlib_metadata
+
 import requests
 
 try:
@@ -678,9 +679,8 @@ class AddonManagerDialog(QDialog):
                     dists[d.metadata['Name']] = d
 
         project_names = unique(itertools.chain(packages.keys(), dists.keys()))
-
         project_names = [name for name in project_names]
-        project_names.sort(key=lambda x: x[7].upper() + x[8:])
+        project_names.sort(key=lambda x: (x[7].upper() + x[8:] if len(x) > 9 else x.upper()))
 
         items = []
         for name in project_names:

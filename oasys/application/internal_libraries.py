@@ -11,7 +11,7 @@ from distutils import version
 # 17 Jan 2025: replaced pkg_resources with importlib (for now the third party version)
 #              because of deprecation
 #import pkg_resources
-import importlib_metadata
+import importlib.metadata as importlib_metadata
 import requests
 
 try:

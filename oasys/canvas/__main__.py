@@ -20,6 +20,7 @@ import platform
 #import pkg_resources
 import importlib_resources
 
+
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtCore import Qt, QDir, QThread, QObject

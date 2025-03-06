@@ -9,8 +9,9 @@ from xml.etree import ElementTree
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 #import pkg_resources
-import importlib_metadata
 import importlib_resources
+import importlib_metadata
+
 
 from PyQt5.QtWidgets import (
     QWidget, QMenu, QAction, QDialog, QMessageBox, QFileDialog,
