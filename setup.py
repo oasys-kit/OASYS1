@@ -9,7 +9,7 @@ from setuptools import setup
 
 NAME = 'OASYS1'
 
-VERSION = '1.2.148'
+VERSION = '1.2.149'
 
 ISRELEASED = True
 
@@ -49,6 +49,8 @@ CLASSIFIERS = (
 INSTALL_REQUIRES = (
     'setuptools',
     'requests',
+    "importlib_resources",
+    "importlib_metadata",
     'numpy<1.23,>=1.21',
     'fabio==0.11.0',
     'PyQt5==5.15.2',
